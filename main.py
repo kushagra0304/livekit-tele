@@ -8,10 +8,9 @@ def main():
     p2 = subprocess.Popen([
         "uvicorn", "server:app",
         "--host", "0.0.0.0",
-        "--port", "8000",
-        "--reload"
+        "--port", "8000"
     ])
-    p1 = subprocess.Popen(["python3", "agent.py", "dev"])
+    p1 = subprocess.Popen(["python3", "agent.py", "start"])
 
     def shutdown(signum, frame):
         print("\nShutting down servers...")
