@@ -8,7 +8,7 @@ def main():
     p2 = subprocess.Popen([
         "uvicorn", "server:app",
         "--host", "0.0.0.0",
-        "--port", "8000"
+        "--port", "10000"
     ])
     p1 = subprocess.Popen(["python3", "agent.py", "start"])
 
