@@ -1,0 +1,9 @@
+### Trigger /dispatch
+POST http://localhost:8000/dispatch
+Content-Type: application/json
+
+{
+  "phone_number": "+917081056000",
+  "prompt": "Hello! This is a test prompt.",
+  "name": "John Doe"
+}
