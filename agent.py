@@ -9,11 +9,14 @@ from livekit.agents import (
     WorkerOptions,
     RoomInputOptions,
 )
+
 from livekit.plugins import (
     deepgram,
     groq,
     cartesia,
     silero,
+    google,
+    openai,
     noise_cancellation,  # noqa: F401
 )
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -69,9 +72,43 @@ class OutboundCaller(Agent):
     async def detected_answering_machine(self, ctx: RunContext):
         logger.info(f"Voicemail detected for {self.participant.identity}")
         await self.hangup()
+    
+from datetime import datetime
+import json
 
 async def entrypoint(ctx: JobContext):
     logger.info(f"connecting to room {ctx.room.name}")
+
+    session = AgentSession(
+        turn_detection=MultilingualModel(),
+        vad=silero.VAD.load(),
+        # stt=deepgram.STT(model="nova-3", language="multi"),
+        # you can also use OpenAI's TTS with openai.TTS()
+        # tts=cartesia.TTS(),
+        stt=openai.STT(
+            model="gpt-4o-transcribe",
+        ),   
+        tts=openai.TTS(
+            model="gpt-4o-mini-tts"
+        ),
+        llm=groq.LLM(),
+        # you can also use a speech-to-speech model like OpenAI's Realtime API
+        # llm=openai.realtime.RealtimeModel()
+    )
+
+    async def write_transcript():
+        current_date = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # This example writes to the temporary directory, but you can save to any location
+        filename = f"/tmp/transcript_{ctx.room.name}_{current_date}.json"
+        
+        with open(filename, 'w') as f:
+            json.dump(session.history.to_dict(), f, indent=2)
+            
+        print(f"Transcript for {ctx.room.name} saved to {filename}")
+
+    ctx.add_shutdown_callback(write_transcript)
+
     await ctx.connect()
 
     # when dispatching the agent, we'll pass it the approriate info to dial the user
@@ -89,18 +126,6 @@ async def entrypoint(ctx: JobContext):
         dial_info=info,
     )
 
-    # the following uses GPT-4o, Deepgram and Cartesia
-    session = AgentSession(
-        turn_detection=MultilingualModel(),
-        vad=silero.VAD.load(),
-        stt=deepgram.STT(model="nova-3", language="multi"),
-        # you can also use OpenAI's TTS with openai.TTS()
-        tts=cartesia.TTS(),
-        llm=groq.LLM(),
-        # you can also use a speech-to-speech model like OpenAI's Realtime API
-        # llm=openai.realtime.RealtimeModel()
-    )
-
     # start the session first before dialing, to ensure that when the user picks up
     # the agent does not miss anything the user says
     session_started = asyncio.create_task(
@@ -116,6 +141,8 @@ async def entrypoint(ctx: JobContext):
 
     # `create_sip_participant` starts dialing the user
     try:
+        # print(ctx.room.name, outbound_trunk_id, phone_number, participant_identity)
+
         await ctx.api.sip.create_sip_participant(
             api.CreateSIPParticipantRequest(
                 room_name=ctx.room.name,
