@@ -82,12 +82,12 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession(
         turn_detection=MultilingualModel(),
         vad=silero.VAD.load(),
-        # stt=deepgram.STT(model="nova-3", language="multi"),
+        stt=deepgram.STT(model="nova-3", language="multi"),
         # you can also use OpenAI's TTS with openai.TTS()
         # tts=cartesia.TTS(),
-        stt=openai.STT(
-            model="gpt-4o-transcribe",
-        ),   
+        # stt=openai.STT(
+        #     model="gpt-4o-transcribe",
+        # ),   
         tts=openai.TTS(
             model="gpt-4o-mini-tts"
         ),
