@@ -11,7 +11,7 @@ def main():
     # Start server subprocesses p2 and p3
     p2 = subprocess.Popen(["python3", "agent.py", "start"])
     p3 = subprocess.Popen([
-        "uvicorn", "server:app",
+        "nohup", "uvicorn", "server:app",
         "--host", "0.0.0.0",
         "--port", "8000"
     ])
