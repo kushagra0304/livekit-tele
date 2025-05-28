@@ -92,6 +92,7 @@ async def entrypoint(ctx: JobContext):
         #     model="gpt-4o-mini-tts"
         # ),
         stt=google.STT(
+            model="telephony",
             spoken_punctuation=False,
         ),        
         tts=google.TTS(
