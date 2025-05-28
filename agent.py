@@ -96,6 +96,7 @@ async def entrypoint(ctx: JobContext):
             spoken_punctuation=False,
         ),        
         tts=google.TTS(
+            voice_name="hi-IN-Chirp3-HD-Achernar",
             gender="female"
         ),        
         llm=groq.LLM(),
