@@ -84,7 +84,7 @@ async def entrypoint(ctx: JobContext):
         vad=silero.VAD.load(),
         # stt=deepgram.STT(model="nova-3", language="multi"),
         # you can also use OpenAI's TTS with openai.TTS()
-        # tts=cartesia.TTS(),
+        tts=cartesia.TTS(),
         # stt=openai.STT(
         #     model="gpt-4o-transcribe",
         # ),   
@@ -95,11 +95,11 @@ async def entrypoint(ctx: JobContext):
             model="telephony",
             spoken_punctuation=False,
         ),        
-        tts=google.TTS(
-            voice_name="hi-IN-Chirp3-HD-Achernar",
-            gender="female",
-            language="hi-IN"
-        ),        
+        # tts=google.TTS(
+        #     voice_name="hi-IN-Chirp3-HD-Achernar",
+        #     gender="female",
+        #     language="hi-IN"
+        # ),        
         llm=groq.LLM(),
         # you can also use a speech-to-speech model like OpenAI's Realtime API
         # llm=openai.realtime.RealtimeModel()
