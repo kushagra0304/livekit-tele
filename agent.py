@@ -97,7 +97,8 @@ async def entrypoint(ctx: JobContext):
         ),        
         tts=google.TTS(
             voice_name="hi-IN-Chirp3-HD-Achernar",
-            gender="female"
+            gender="female",
+            language="hi-IN"
         ),        
         llm=groq.LLM(),
         # you can also use a speech-to-speech model like OpenAI's Realtime API
