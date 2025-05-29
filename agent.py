@@ -25,6 +25,8 @@ import logging
 import os
 from dotenv import load_dotenv
 import json
+from livekit.agents import metrics, MetricsCollectedEvent
+import aiohttp
 
 load_dotenv(".env.local")
 logger = logging.getLogger("voice-ai-agent")
@@ -105,16 +107,82 @@ async def entrypoint(ctx: JobContext):
         # llm=openai.realtime.RealtimeModel()
     )
 
+    tmp_metrics = []
+
+    @session.on("metrics_collected")
+    def _on_metrics_collected(ev: MetricsCollectedEvent):
+        if ev.metrics.type == "stt_metrics":
+            metric_dict = {
+                "type": ev.metrics.type,
+                "timestamp": ev.metrics.timestamp if hasattr(ev.metrics, 'timestamp') else None,
+                "audio_duration": ev.metrics.audio_duration if hasattr(ev.metrics, 'audio_duration') else None,
+                "duration": ev.metrics.duration if hasattr(ev.metrics, 'duration') else None
+            }
+            tmp_metrics.append(metric_dict)
+        elif ev.metrics.type == "llm_metrics":
+            metric_dict = {
+                "type": ev.metrics.type,
+                "timestamp": ev.metrics.timestamp if hasattr(ev.metrics, 'timestamp') else None,
+                "duration": ev.metrics.duration if hasattr(ev.metrics, 'duration') else None,
+                "completion_tokens": ev.metrics.completion_tokens if hasattr(ev.metrics, 'completion_tokens') else None,
+                "prompt_tokens": ev.metrics.prompt_tokens if hasattr(ev.metrics, 'prompt_tokens') else None,
+                "prompt_cached_tokens": ev.metrics.prompt_cached_tokens if hasattr(ev.metrics, 'prompt_cached_tokens') else None,
+                "speech_id": ev.metrics.speech_id if hasattr(ev.metrics, 'speech_id') else None,
+                "total_tokens": ev.metrics.total_tokens if hasattr(ev.metrics, 'total_tokens') else None,
+                "tokens_per_second": ev.metrics.tokens_per_second if hasattr(ev.metrics, 'tokens_per_second') else None,
+                "ttft": ev.metrics.ttft if hasattr(ev.metrics, 'ttft') else None
+            }
+            tmp_metrics.append(metric_dict)
+        elif ev.metrics.type == "tts_metrics":
+            metric_dict = {
+                "type": ev.metrics.type,
+                "timestamp": ev.metrics.timestamp if hasattr(ev.metrics, 'timestamp') else None,
+                "audio_duration": ev.metrics.audio_duration if hasattr(ev.metrics, 'audio_duration') else None,
+                "characters_count": ev.metrics.characters_count if hasattr(ev.metrics, 'characters_count') else None,
+                "duration": ev.metrics.duration if hasattr(ev.metrics, 'duration') else None,
+                "ttfb": ev.metrics.ttfb if hasattr(ev.metrics, 'ttfb') else None,
+                "speech_id": ev.metrics.speech_id if hasattr(ev.metrics, 'speech_id') else None,
+                "streamed": ev.metrics.streamed if hasattr(ev.metrics, 'streamed') else None
+            }
+            tmp_metrics.append(metric_dict)
+        elif ev.metrics.type == "eou_metrics":
+            metric_dict = {
+                "type": ev.metrics.type,
+                "timestamp": ev.metrics.timestamp if hasattr(ev.metrics, 'timestamp') else None,
+                "end_of_utterance_delay": ev.metrics.end_of_utterance_delay if hasattr(ev.metrics, 'end_of_utterance_delay') else None,
+                "transcription_delay": ev.metrics.transcription_delay if hasattr(ev.metrics, 'transcription_delay') else None,
+                "on_user_turn_completed_delay": ev.metrics.on_user_turn_completed_delay if hasattr(ev.metrics, 'on_user_turn_completed_delay') else None,
+                "speech_id": ev.metrics.speech_id if hasattr(ev.metrics, 'speech_id') else None
+            }
+
+            tmp_metrics.append(metric_dict)
+
     async def write_transcript():
         current_date = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # This example writes to the temporary directory, but you can save to any location
+        # Save transcript and metrics to the server
+        async with aiohttp.ClientSession() as htsession:
+            try:
+                await htsession.post(
+                    "http://localhost:8000/save-call-data",
+                    json={
+                        "transcript": session.history.to_dict(),
+                        "metrics": tmp_metrics
+                    }
+                )
+                logger.info(f"Call data saved successfully for room {ctx.room.name}")
+            except Exception as e:
+                logger.error(f"Failed to save call data: {e}")
+
+        # Also save locally as backup
         filename = f"/tmp/transcript_{ctx.room.name}_{current_date}.json"
-        
         with open(filename, 'w') as f:
-            json.dump(session.history.to_dict(), f, indent=2)
+            json.dump({
+                "transcript": session.history.to_dict(),
+                "metrics": tmp_metrics
+            }, f, indent=2)
             
-        print(f"Transcript for {ctx.room.name} saved to {filename}")
+        logger.info(f"Transcript backup for {ctx.room.name} saved to {filename}")
 
     ctx.add_shutdown_callback(write_transcript)
 

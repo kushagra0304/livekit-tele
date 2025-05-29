@@ -4,10 +4,16 @@ import json
 import os
 from dotenv import load_dotenv
 from livekit import api
+import uuid
+from datetime import datetime
 
 load_dotenv(".env.local")
 
 app = FastAPI()
+rand_id = ""
+
+def generate_id():
+    return str(uuid.uuid4())
 
 @app.get("/")
 def root():
@@ -15,6 +21,8 @@ def root():
 
 @app.post("/dispatch")
 async def trigger_dispatch(request: Request):
+    global rand_id
+    rand_id = generate_id()
     data = await request.json()
     phone_number = data.get("phone_number")
     prompt = data.get("prompt")
@@ -46,4 +54,41 @@ async def trigger_dispatch(request: Request):
             })
         )
     )
-    return {"status": "dispatch started", "room": room_name, "phone_number": phone_number}
+
+    return {
+        "status": "dispatch started", 
+        "room": room_name, 
+        "phone_number": phone_number, 
+        "data_id": rand_id
+    }
+
+@app.post("/save-call-data")
+async def save_call_data(request: Request):
+    data = await request.json()
+    
+    # Create a directory for call data if it doesn't exist
+    os.makedirs("call_data", exist_ok=True)
+    
+    # Save the data to a file
+    file_path = f"call_data/{rand_id}.json"
+    with open(file_path, "w") as f:
+        json.dump({
+            "timestamp": datetime.now().isoformat(),
+            "transcript": data.get("transcript", ""),
+            "metrics": data.get("metrics", {})
+        }, f, indent=2)
+    
+    return {"status": "success", "message": "Call data saved successfully"}
+
+@app.get("/get-call-data/{call_id}")
+async def get_call_data(call_id: str):
+    file_path = f"call_data/{call_id}.json"
+    print(file_path)
+
+    if not os.path.exists(file_path):
+        return {"error": "Call data not found"}
+    
+    with open(file_path, "r") as f:
+        data = json.load(f)
+    
+    return data

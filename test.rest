@@ -7,3 +7,6 @@ Content-Type: application/json
   "prompt": "Hello! This is a test prompt.",
   "name": "John Doe"
 }
+
+### Trigger /dispatch
+GET http://localhost:8000/get-call-data/2ac73366-d021-4807-9b57-97c94eedf0d7
