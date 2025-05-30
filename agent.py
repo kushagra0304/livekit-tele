@@ -136,7 +136,7 @@ async def entrypoint(ctx: JobContext):
             # Prepare the data to save
             data_to_save = {
                 "name": info["name"],
-                "number": info["number"],
+                "number": phone_number,
                 "transcript": session.history.to_dict(),
                 "metrics": {
                     "tts_characters_count": summary.tts_characters_count,
