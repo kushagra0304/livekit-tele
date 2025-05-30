@@ -127,7 +127,7 @@ async def entrypoint(ctx: JobContext):
         # Create directory for storing transcripts, if it doesn't exist
         output_dir = "call_data"
         os.makedirs(output_dir, exist_ok=True)
-        filepath = os.path.join(output_dir, data_id)
+        filepath = os.path.join(output_dir, (data_id + ".json"))
 
         try:
             summary = await log_usage()
