@@ -8,6 +8,7 @@ from livekit.agents import (
     cli,
     WorkerOptions,
     RoomInputOptions,
+    function_tool
 )
 
 from livekit.plugins import (
@@ -41,6 +42,7 @@ class OutboundCaller(Agent):
     def set_participant(self, participant):
         self.participant = participant
 
+    @function_tool()
     async def hangup(self):
         job_ctx = get_job_context()
         await job_ctx.api.room.delete_room(api.DeleteRoomRequest(room=job_ctx.room.name))
@@ -63,6 +65,7 @@ class OutboundCaller(Agent):
             logger.error(f"Transfer failed: {e}")
             await self.hangup()
 
+    @function_tool()
     async def end_call(self, ctx: RunContext):
         logger.info(f"Ending call for {self.participant.identity}")
         current_speech = ctx.session.current_speech
