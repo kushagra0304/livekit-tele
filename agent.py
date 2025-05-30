@@ -167,7 +167,7 @@ async def entrypoint(ctx: JobContext):
             filepath=f"""recordings/{data_id}.ogg""",
             s3=api.S3Upload(
                 bucket="livekit-tele",
-                region="Asia Pacific (Mumbai) ap-south-1",
+                region="ap-south-1",
                 access_key=os.getenv("S3_ACCESS_KEY"),
                 secret=os.getenv("S3_SECERET"),
             ),
