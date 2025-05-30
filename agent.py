@@ -19,7 +19,7 @@ from livekit.plugins import (
     openai,
     noise_cancellation,  # noqa: F401
 )
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins.turn_detector.english import EnglishModel
 import asyncio
 import logging
 import os
@@ -81,9 +81,9 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"connecting to room {ctx.room.name}")
 
     session = AgentSession(
-        turn_detection=MultilingualModel(),
+        turn_detection=EnglishModel(),
         vad=silero.VAD.load(),
-        stt=deepgram.STT(model="nova-3", language="multi"),
+        stt=deepgram.STT(model="nova-3"),
         # you can also use OpenAI's TTS with openai.TTS()
         tts=cartesia.TTS(),
         # stt=openai.STT(
