@@ -22,6 +22,7 @@ def root():
 @app.post("/dispatch")
 async def trigger_dispatch(request: Request):
     global rand_id
+
     rand_id = generate_id()
     data = await request.json()
     phone_number = data.get("phone_number")
@@ -43,14 +44,15 @@ async def trigger_dispatch(request: Request):
         api_secret=os.getenv("LIVEKIT_API_SECRET"),
     )
 
-    await lkapi.agent_dispatch.create_dispatch(
+    res = await lkapi.agent_dispatch.create_dispatch(
         api.CreateAgentDispatchRequest(
             agent_name="outbound-caller",
             room=room_name,
             metadata=json.dumps({
                 "phone_number": phone_number,
                 "prompt": prompt,
-                "name": name
+                "name": name,
+                "data_id": rand_id
             })
         )
     )

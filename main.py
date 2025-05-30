@@ -17,30 +17,36 @@ def main():
         "--port", "8000"
     ], preexec_fn=os.setsid)
 
+    processes = [p2, p3]  # Store processes for easy handling
+
     def shutdown(signum, frame):
         print("\nShutting down servers...")
-        for p in (p2, p3):
-            try:
-                os.killpg(os.getpgid(p.pid), signal.SIGTERM)
-                p.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                print(f"{p.args} did not terminate, killing...")
-                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        for p in processes:
+            if p and p.poll() is None:  # Check if process exists and is running
+                try:
+                    os.killpg(os.getpgid(p.pid), signal.SIGTERM)
+                    p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    print(f"{p.args} did not terminate, killing...")
+                    os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+                except ProcessLookupError:
+                    print(f"Process {p.args} already exited.")
+            else:
+                print(f"Process {p.args} is not running or already terminated.")
         print("Servers stopped.")
         sys.exit(0)
 
+    # Register signal handlers
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
     print("Servers started. Press Ctrl+C to stop.")
     try:
         while True:
-            if p2.poll() is not None:
-                print("Server p2 exited unexpectedly.")
-                shutdown(None, None)
-            if p3.poll() is not None:
-                print("Server p3 exited unexpectedly.")
-                shutdown(None, None)
+            for p in processes:
+                if p.poll() is not None:
+                    print(f"Server {p.args} exited unexpectedly.")
+                    shutdown(None, None)
             time.sleep(1)
     except KeyboardInterrupt:
         shutdown(None, None)

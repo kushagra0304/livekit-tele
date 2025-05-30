@@ -26,7 +26,6 @@ import os
 from dotenv import load_dotenv
 import json
 from livekit.agents import metrics, MetricsCollectedEvent
-import aiohttp
 
 load_dotenv(".env.local")
 logger = logging.getLogger("voice-ai-agent")
@@ -107,8 +106,7 @@ async def entrypoint(ctx: JobContext):
         # llm=openai.realtime.RealtimeModel()
     )
 
-    tmp_metrics = []
-
+    # ------------------------------------------------------------
     usage_collector = metrics.UsageCollector()
 
     @session.on("metrics_collected")
@@ -118,45 +116,47 @@ async def entrypoint(ctx: JobContext):
     async def log_usage():
         summary = usage_collector.get_summary()
         return summary
+    # ------------------------------------------------------------
 
-    async def write_transcript():
-        current_date = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Save transcript and metrics to the server
-        async with aiohttp.ClientSession() as htsession:
-            try:
-                summary = (await log_usage())
-
-                logger.info(f"Usage: {summary}")
-
-                await htsession.post(
-                    "http://localhost:8000/save-call-data",
-                    json={
-                        "transcript": session.history.to_dict(),
-                        "metrics": {
-                            "tts_characters_count": summary.tts_characters_count,
-                            "stt_audio_duration": summary.stt_audio_duration,
-                            "llm_prompt_tokens": summary.llm_prompt_tokens,
-                            "llm_prompt_cached_tokens": summary.llm_prompt_cached_tokens,
-                            "llm_completion_tokens": summary.llm_completion_tokens
-                        }
-                    }
-                )
-                logger.info(f"Call data saved successfully for room {ctx.room.name}")
-            except Exception as e:
-                logger.error(f"Failed to save call data: {e}")
-
-    ctx.add_shutdown_callback(write_transcript)
-
-    await ctx.connect()
-
-    # when dispatching the agent, we'll pass it the approriate info to dial the user
-    # dial_info is a dict with the following keys:
-    # - phone_number: the phone number to dial
-    # - transfer_to: the phone number to transfer the call to when requested
     info = json.loads(ctx.job.metadata)
     participant_identity = phone_number = info["phone_number"]
     prompt = info["prompt"]
+    data_id = info["data_id"]
+
+    async def write_transcript():
+        # Create directory for storing transcripts, if it doesn't exist
+        output_dir = "call_data"
+        os.makedirs(output_dir, exist_ok=True)
+        filepath = os.path.join(output_dir, data_id)
+
+        try:
+            summary = await log_usage()
+            logger.info(f"Usage: {summary}")
+
+            # Prepare the data to save
+            data_to_save = {
+                "transcript": session.history.to_dict(),
+                "metrics": {
+                    "tts_characters_count": summary.tts_characters_count,
+                    "stt_audio_duration": summary.stt_audio_duration,
+                    "llm_prompt_tokens": summary.llm_prompt_tokens,
+                    "llm_prompt_cached_tokens": summary.llm_prompt_cached_tokens,
+                    "llm_completion_tokens": summary.llm_completion_tokens
+                }
+            }
+
+            # Save the data as a JSON file
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+
+            logger.info(f"Call data saved successfully to {filepath}")
+
+        except Exception as e:
+            logger.error(f"Failed to save call data: {e}")
+
+
+    ctx.add_shutdown_callback(write_transcript)
+    await ctx.connect()
 
     # look up the user's phone number and appointment details
     agent = OutboundCaller(
@@ -197,7 +197,6 @@ async def entrypoint(ctx: JobContext):
         await session_started
         participant = await ctx.wait_for_participant(identity=participant_identity)
         logger.info(f"participant joined: {participant.identity}")
-
         agent.set_participant(participant)
 
     except api.TwirpError as e:
@@ -206,6 +205,7 @@ async def entrypoint(ctx: JobContext):
             f"SIP status: {e.metadata.get('sip_status_code')} "
             f"{e.metadata.get('sip_status')}"
         )
+
         ctx.shutdown()
 
 if __name__ == "__main__":
