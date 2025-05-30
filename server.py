@@ -87,10 +87,14 @@ async def get_call_data(call_id: str):
     file_path = f"call_data/{call_id}.json"
     print(file_path)
 
-    if not os.path.exists(file_path):
-        return {"error": "Call data not found"}
+    try:
+        if not os.path.exists(file_path):
+            return {"error": "Call data not found"}
+        
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        
+        return data
     
-    with open(file_path, "r") as f:
-        data = json.load(f)
-    
-    return data
+    except Exception as e:
+        return {"error": str(e)}
