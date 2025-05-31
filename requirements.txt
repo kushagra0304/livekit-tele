@@ -4,3 +4,5 @@ livekit-agents[deepgram,groq,cartesia,silero,turn-detector]~=1.0
 livekit-plugins-noise-cancellation~=0.2
 uvicorn
 aiohttp
+boto3
+ffmpeg-python
