@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 import random
 import json
 import os
@@ -6,6 +6,10 @@ from dotenv import load_dotenv
 from livekit import api
 import uuid
 from datetime import datetime
+import boto3
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+import ffmpeg
 
 load_dotenv(".env.local")
 
@@ -123,3 +127,48 @@ async def get_all_call_data():
     
     except Exception as e:
         return {"error": str(e)}
+    
+
+# Initialize boto3 S3 client
+s3_client = boto3.client(
+    's3',                     
+    aws_access_key_id=os.getenv("S3_ACCESS_KEY"),
+    aws_secret_access_key=os.getenv("S3_SECERET"),
+    region_name='ap-south-1'
+)
+
+BUCKET_NAME = 'livekit-tele'
+
+@app.get("/get-recording/{filename}")
+async def convert_ogg_to_mp3(filename: str):
+    # Step 1: Download OGG file from S3 into memory
+    ogg_data = BytesIO()
+    try:
+        s3_client.download_fileobj(BUCKET_NAME, "recordings/"+filename+".ogg", ogg_data)
+        ogg_data.seek(0)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"File not found or S3 error: {e}")
+
+    # Step 2: Use ffmpeg-python to convert ogg -> mp3 in memory
+    try:
+        # Input stream from ogg_data bytes
+        process = (
+            ffmpeg
+            .input('pipe:0')
+            .output('pipe:1', format='mp3', audio_bitrate='192k')
+            .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+        )
+
+        out, err = process.communicate(input=ogg_data.read())
+
+        if process.returncode != 0:
+            raise RuntimeError(f"ffmpeg error: {err.decode()}")
+
+        mp3_data = BytesIO(out)
+        mp3_data.seek(0)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio conversion error: {e}")
+
+    # Step 3: Return the MP3 file
+    return StreamingResponse(mp3_data, media_type="audio/mpeg",
+                             headers={"Content-Disposition": f"attachment; filename={filename.rsplit('.', 1)[0]}.mp3"})
