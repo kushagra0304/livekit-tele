@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 import ffmpeg
 from livekit.api import ListRoomsRequest
 import asyncio
+from contextlib import asynccontextmanager
 
 async def hello():
     while True:
@@ -30,11 +31,17 @@ asyncio.run(hello())
 
 load_dotenv(".env.local")
 
-app = FastAPI()
 rand_id = ""
 
 def generate_id():
     return str(uuid.uuid4())
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await hello()
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def root():
