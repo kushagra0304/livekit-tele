@@ -83,7 +83,7 @@ async def dispatch_call(phone_number: str, prompt: str, name: str) -> Dict[str, 
 
     await asyncio.sleep(5)
 
-    last_status = None
+    last_status = "dialing"
 
     while (await get_sip_call_status(lkapi, room_name)) != None:
         last_status = await get_sip_call_status(lkapi, room_name)
