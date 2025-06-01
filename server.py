@@ -10,21 +10,7 @@ import boto3
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import ffmpeg
-from livekit.api import ListRoomsRequest
 import asyncio
-from contextlib import asynccontextmanager
-
-async def hello():
-    while True:
-        lkapi = api.LiveKitAPI(
-            url=os.getenv("LIVEKIT_URL"),
-            api_key=os.getenv("LIVEKIT_API_KEY"),
-            api_secret=os.getenv("LIVEKIT_API_SECRET"),
-        )
-
-        print(await lkapi.room.list_rooms(ListRoomsRequest()))
-
-        await asyncio.sleep(10)
 
 load_dotenv(".env.local")
 
@@ -33,12 +19,25 @@ rand_id = ""
 def generate_id():
     return str(uuid.uuid4())
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await hello()
-    yield
+app = FastAPI()
 
-app = FastAPI(lifespan=lifespan)
+async def list_rooms_periodically():
+    while True:
+        try:
+            lkapi = api.LiveKitAPI(
+                url=os.getenv("LIVEKIT_URL"),
+                api_key=os.getenv("LIVEKIT_API_KEY"),
+                api_secret=os.getenv("LIVEKIT_API_SECRET"),
+            )
+            rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
+            print("Current rooms:", rooms)
+        except Exception as e:
+            print(f"Error listing rooms: {e}")
+        await asyncio.sleep(10)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(list_rooms_periodically())
 
 @app.get("/")
 def root():
