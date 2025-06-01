@@ -10,7 +10,11 @@ import boto3
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import ffmpeg
+from typing import Dict
+from livekit.api import ListRoomsRequest
 import asyncio
+from livekit.api import ListParticipantsRequest
+from livekit import rtc
 
 load_dotenv(".env.local")
 
@@ -21,39 +25,32 @@ def generate_id():
 
 app = FastAPI()
 
-async def list_rooms_periodically():
-    while True:
-        try:
-            lkapi = api.LiveKitAPI(
-                url=os.getenv("LIVEKIT_URL"),
-                api_key=os.getenv("LIVEKIT_API_KEY"),
-                api_secret=os.getenv("LIVEKIT_API_SECRET"),
-            )
-            rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
-            print("Current rooms:", rooms)
-            await lkapi.aclose()
-        except Exception as e:
-            print(f"Error listing rooms: {e}")
-        await asyncio.sleep(10)
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(list_rooms_periodically())
-
 @app.get("/")
 def root():
     return {"status": "OK", "message": "Voice AI agent is running"}
 
-@app.post("/dispatch")
-async def trigger_dispatch(request: Request):
-    global rand_id
+async def get_sip_call_status(lkapi, room_name):
+    res = await lkapi.room.list_participants(ListParticipantsRequest(
+        room=room_name
+    ))
 
+    sip_participant = None
+
+    for participant in res.participants:
+        # Check if participant kind is SIP (assuming 3 is the SIP kind)
+        if participant.kind == 3:
+            sip_participant = participant
+            break
+
+    if sip_participant is None:
+        return None  # or raise an exception if no SIP participant found
+
+    return sip_participant.attributes['sip.callStatus']
+
+async def dispatch_call(phone_number: str, prompt: str, name: str) -> Dict[str, str]:
     rand_id = generate_id()
-    data = await request.json()
-    phone_number = data.get("phone_number")
-    prompt = data.get("prompt")
-    name = data.get("name")
 
+    # Validate inputs
     if not phone_number:
         return {"error": "Missing phone_number"}
     if not prompt:
@@ -63,12 +60,14 @@ async def trigger_dispatch(request: Request):
 
     room_name = f"outbound-{''.join(str(random.randint(0, 9)) for _ in range(10))}"
 
+    # Initialize the LiveKit API client
     lkapi = api.LiveKitAPI(
         url=os.getenv("LIVEKIT_URL"),
         api_key=os.getenv("LIVEKIT_API_KEY"),
         api_secret=os.getenv("LIVEKIT_API_SECRET"),
     )
 
+    # Prepare and send the dispatch request
     res = await lkapi.agent_dispatch.create_dispatch(
         api.CreateAgentDispatchRequest(
             agent_name="outbound-caller",
@@ -82,30 +81,37 @@ async def trigger_dispatch(request: Request):
         )
     )
 
-    return {
-        "status": "dispatch started", 
-        "room": room_name, 
-        "phone_number": phone_number, 
-        "data_id": rand_id
-    }
+    await asyncio.sleep(5)
 
-@app.post("/save-call-data")
-async def save_call_data(request: Request):
+    last_status = None
+
+    while (await get_sip_call_status(lkapi, room_name)) != None:
+        last_status = await get_sip_call_status(lkapi, room_name)
+        print(last_status)
+        await asyncio.sleep(1)  
+
+    await lkapi.aclose()
+
+    print({
+        "room": room_name,
+        "phone_number": phone_number,
+        "data_id": rand_id,
+        "last_status": last_status
+    })
+
+@app.post("/dispatch")
+async def trigger_dispatch(request: Request):
     data = await request.json()
-    
-    # Create a directory for call data if it doesn't exist
-    os.makedirs("call_data", exist_ok=True)
-    
-    # Save the data to a file
-    file_path = f"call_data/{rand_id}.json"
-    with open(file_path, "w") as f:
-        json.dump({
-            "timestamp": datetime.now().isoformat(),
-            "transcript": data.get("transcript", ""),
-            "metrics": data.get("metrics", {})
-        }, f, indent=2)
-    
-    return {"status": "success", "message": "Call data saved successfully"}
+
+    phone_number = data.get("phone_number")
+    prompt = data.get("prompt")
+    name = data.get("name")
+
+    asyncio.create_task(dispatch_call(phone_number, prompt, name))
+
+    return {
+        "status": "dispatch started",
+    }
 
 @app.get("/get-call-data/{call_id}")
 async def get_call_data(call_id: str):

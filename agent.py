@@ -220,6 +220,7 @@ async def entrypoint(ctx: JobContext):
 
         # wait for the agent session start and participant join
         await session_started
+        
         participant = await ctx.wait_for_participant(identity=participant_identity)
         logger.info(f"participant joined: {participant.identity}")
         agent.set_participant(participant)
