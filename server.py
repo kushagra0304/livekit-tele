@@ -10,6 +10,7 @@ import boto3
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import ffmpeg
+from livekit.api import ListRoomsRequest
 
 load_dotenv(".env.local")
 
@@ -60,6 +61,10 @@ async def trigger_dispatch(request: Request):
             })
         )
     )
+
+    rooms = await lkapi.room.list_rooms(ListRoomsRequest())
+
+    print(rooms)
 
     return {
         "status": "dispatch started", 
