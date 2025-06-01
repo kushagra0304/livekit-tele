@@ -26,9 +26,6 @@ async def hello():
 
         await asyncio.sleep(10)
 
-asyncio.run(hello())
-
-
 load_dotenv(".env.local")
 
 rand_id = ""
