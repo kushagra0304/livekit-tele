@@ -78,14 +78,14 @@ async def dispatch_call(phone_number: str, prompt: str, name: str):
         )
     )
 
-    await asyncio.sleep(5)
+    # await asyncio.sleep(5)
 
-    last_status = "dialing"
+    # last_status = "dialing"
 
-    while (await get_sip_call_status(lkapi, room_name)) != None:
-        last_status = await get_sip_call_status(lkapi, room_name)
-        print(last_status)
-        await asyncio.sleep(5)  
+    # while (await get_sip_call_status(lkapi, room_name)) != None:
+    #     last_status = await get_sip_call_status(lkapi, room_name)
+    #     print(last_status)
+    #     await asyncio.sleep(5)  
 
     await lkapi.aclose()
 
@@ -93,7 +93,7 @@ async def dispatch_call(phone_number: str, prompt: str, name: str):
         "room": room_name,
         "phone_number": phone_number,
         "data_id": rand_id,
-        "last_status": last_status
+        # "last_status": last_status
     })
 
 async def batch_dispatch_calls(people: list, prompt: str):
@@ -167,11 +167,7 @@ async def trigger_dispatch(request: Request):
     prompt = data.get("prompt")
     name = data.get("name")
 
-    asyncio.create_task(dispatch_call(phone_number, prompt, name))
-
-    return {
-        "status": "dispatch started",
-    }
+    return await (dispatch_call(phone_number, prompt, name))
 
 @app.get("/get-call-data/{call_id}")
 async def get_call_data(call_id: str):
