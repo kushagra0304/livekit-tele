@@ -5,16 +5,13 @@ import os
 from dotenv import load_dotenv
 from livekit import api
 import uuid
-from datetime import datetime
 import boto3
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import ffmpeg
-from typing import Dict
-from livekit.api import ListRoomsRequest
 import asyncio
 from livekit.api import ListParticipantsRequest
-from livekit import rtc
+import datetime
 
 load_dotenv(".env.local")
 
@@ -41,13 +38,13 @@ async def get_sip_call_status(lkapi, room_name):
         if participant.kind == 3:
             sip_participant = participant
             break
-
+    
     if sip_participant is None:
         return None  # or raise an exception if no SIP participant found
 
     return sip_participant.attributes['sip.callStatus']
 
-async def dispatch_call(phone_number: str, prompt: str, name: str) -> Dict[str, str]:
+async def dispatch_call(phone_number: str, prompt: str, name: str):
     rand_id = generate_id()
 
     # Validate inputs
@@ -88,16 +85,79 @@ async def dispatch_call(phone_number: str, prompt: str, name: str) -> Dict[str, 
     while (await get_sip_call_status(lkapi, room_name)) != None:
         last_status = await get_sip_call_status(lkapi, room_name)
         print(last_status)
-        await asyncio.sleep(1)  
+        await asyncio.sleep(5)  
 
     await lkapi.aclose()
 
-    print({
+    return ({
         "room": room_name,
         "phone_number": phone_number,
         "data_id": rand_id,
         "last_status": last_status
     })
+
+async def batch_dispatch_calls(people: list, prompt: str):
+    results = []
+    
+    for person in people:
+        phone_number = person.get("phone_number")
+        name = person.get("name")
+
+        try:            
+            data = await dispatch_call(phone_number, prompt, name)
+            results.append(data)
+            await asyncio.sleep(5)
+        except Exception as e:
+            # If there's an error, add it to the results
+            results.append({
+                'phone_number': phone_number,
+                'error': str(e)
+            })
+    
+    # Create a consolidated result object
+    consolidated_data = {
+        'batch_id': generate_id(),  # or use uuid.uuid4().hex
+        'timestamp': str(datetime.datetime.now()),
+        'total_calls': len(people),
+        'results': results
+    }
+    
+    # Save the consolidated data to a JSON file
+    os.makedirs('batch_data', exist_ok=True)
+    file_path = f'batch_data/batch_{consolidated_data["batch_id"]}.json'
+    
+    with open(file_path, 'w') as f:
+        json.dump(consolidated_data, f, indent=2)
+    
+    return consolidated_data
+
+@app.post("/batch-dispatch")
+async def trigger_batch_dispatch(request: Request):
+    data = await request.json()
+    
+    people = data.get("people", [])
+    prompt = data.get("prompt")
+    
+    if not people:
+        return {"error": "No people provided"}
+    if not prompt:
+        return {"error": "Missing prompt"}
+    
+    # Extract phone numbers and names from people
+    phone_numbers = [person.get("phone_number") for person in people]
+    names = [person.get("name") for person in people]
+    
+    if not all(phone_numbers):
+        return {"error": "Some people entries are missing phone_number"}
+    if not all(names):
+        return {"error": "Some people entries are missing name"}
+    
+    # Start the batch processing
+    asyncio.create_task(batch_dispatch_calls(people, prompt))
+    
+    return {
+        "status": "batch dispatch on the way"
+    }
 
 @app.post("/dispatch")
 async def trigger_dispatch(request: Request):
@@ -199,3 +259,4 @@ async def convert_ogg_to_mp3(filename: str):
     # Step 3: Return the MP3 file
     return StreamingResponse(mp3_data, media_type="audio/mpeg",
                              headers={"Content-Disposition": f"attachment; filename={filename.rsplit('.', 1)[0]}.mp3"})
+
