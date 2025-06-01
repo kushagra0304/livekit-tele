@@ -31,6 +31,7 @@ async def list_rooms_periodically():
             )
             rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
             print("Current rooms:", rooms)
+            await lkapi.aclose()
         except Exception as e:
             print(f"Error listing rooms: {e}")
         await asyncio.sleep(10)
