@@ -11,6 +11,22 @@ from io import BytesIO
 from fastapi.responses import StreamingResponse
 import ffmpeg
 from livekit.api import ListRoomsRequest
+import asyncio
+
+async def hello():
+    while True:
+        lkapi = api.LiveKitAPI(
+            url=os.getenv("LIVEKIT_URL"),
+            api_key=os.getenv("LIVEKIT_API_KEY"),
+            api_secret=os.getenv("LIVEKIT_API_SECRET"),
+        )
+
+        print(await lkapi.room.list_rooms(ListRoomsRequest()))
+
+        await asyncio.sleep(10)
+
+asyncio.run(hello())
+
 
 load_dotenv(".env.local")
 
@@ -61,10 +77,6 @@ async def trigger_dispatch(request: Request):
             })
         )
     )
-
-    rooms = await lkapi.room.list_rooms(ListRoomsRequest())
-
-    print(rooms)
 
     return {
         "status": "dispatch started", 
