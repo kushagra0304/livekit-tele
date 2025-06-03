@@ -14,7 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # CORS configuration
 origins = [
     "https://urmi.ai",  # allow HTTPS requests from urmi.ai
-    "http://urmi.ai"    # allow HTTP requests (optional, if used)
+    "http://urmi.ai",    # allow HTTP requests (optional, if used)
+    "http://localhost:5173"
 ]
 
 load_dotenv(".env.local")
