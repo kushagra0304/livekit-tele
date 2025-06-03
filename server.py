@@ -35,6 +35,15 @@ app.add_middleware(
     allow_headers=["*"],                # allow all headers
 )
 
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    try:
+        body = await request.body()
+        print(f"Received request: {request.method} {request.url} with body: {body}")
+    except Exception as e:
+        print(f"Error reading request body: {e}")
+    return await call_next(request)
+
 
 @app.get("/")
 def root():
