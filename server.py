@@ -9,9 +9,13 @@ import boto3
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import ffmpeg
-import asyncio
-from livekit.api import ListParticipantsRequest
-import datetime
+from fastapi.middleware.cors import CORSMiddleware
+
+# CORS configuration
+origins = [
+    "https://urmi.ai",  # allow HTTPS requests from urmi.ai
+    "http://urmi.ai"    # allow HTTP requests (optional, if used)
+]
 
 load_dotenv(".env.local")
 
@@ -22,27 +26,18 @@ def generate_id():
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,              # allowed origins
+    allow_credentials=True,             # allow cookies or auth headers
+    allow_methods=["*"],                # allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],                # allow all headers
+)
+
+
 @app.get("/")
 def root():
     return {"status": "OK", "message": "Voice AI agent is running"}
-
-async def get_sip_call_status(lkapi, room_name):
-    res = await lkapi.room.list_participants(ListParticipantsRequest(
-        room=room_name
-    ))
-
-    sip_participant = None
-
-    for participant in res.participants:
-        # Check if participant kind is SIP (assuming 3 is the SIP kind)
-        if participant.kind == 3:
-            sip_participant = participant
-            break
-    
-    if sip_participant is None:
-        return None  # or raise an exception if no SIP participant found
-
-    return sip_participant.attributes['sip.callStatus']
 
 async def dispatch_call(phone_number: str, prompt: str, name: str):
     rand_id = generate_id()
@@ -78,86 +73,13 @@ async def dispatch_call(phone_number: str, prompt: str, name: str):
         )
     )
 
-    # await asyncio.sleep(5)
-
-    # last_status = "dialing"
-
-    # while (await get_sip_call_status(lkapi, room_name)) != None:
-    #     last_status = await get_sip_call_status(lkapi, room_name)
-    #     print(last_status)
-    #     await asyncio.sleep(5)  
-
     await lkapi.aclose()
 
     return ({
         "room": room_name,
         "phone_number": phone_number,
         "data_id": rand_id,
-        # "last_status": last_status
     })
-
-async def batch_dispatch_calls(people: list, prompt: str):
-    results = []
-    
-    for person in people:
-        phone_number = person.get("phone_number")
-        name = person.get("name")
-
-        try:            
-            data = await dispatch_call(phone_number, prompt, name)
-            results.append(data)
-            await asyncio.sleep(5)
-        except Exception as e:
-            # If there's an error, add it to the results
-            results.append({
-                'phone_number': phone_number,
-                'error': str(e)
-            })
-    
-    # Create a consolidated result object
-    consolidated_data = {
-        'batch_id': generate_id(),  # or use uuid.uuid4().hex
-        'timestamp': str(datetime.datetime.now()),
-        'total_calls': len(people),
-        'results': results
-    }
-    
-    # Save the consolidated data to a JSON file
-    os.makedirs('batch_data', exist_ok=True)
-    file_path = f'batch_data/batch_{consolidated_data["batch_id"]}.json'
-    
-    with open(file_path, 'w') as f:
-        json.dump(consolidated_data, f, indent=2)
-    
-    return consolidated_data
-
-@app.post("/batch-dispatch")
-async def trigger_batch_dispatch(request: Request):
-    data = await request.json()
-    
-    people = data.get("people", [])
-    prompt = data.get("prompt")
-    
-    if not people:
-        return {"error": "No people provided"}
-    if not prompt:
-        return {"error": "Missing prompt"}
-    
-    # Extract phone numbers and names from people
-    phone_numbers = [person.get("phone_number") for person in people]
-    names = [person.get("name") for person in people]
-    
-    if not all(phone_numbers):
-        return {"error": "Some people entries are missing phone_number"}
-    if not all(names):
-        return {"error": "Some people entries are missing name"}
-    
-    # Start the batch processing
-    asyncio.create_task(batch_dispatch_calls(people, prompt))
-    
-    return {
-        "status": "batch dispatch on the way"
-    }
 
 @app.post("/dispatch")
 async def trigger_dispatch(request: Request):
