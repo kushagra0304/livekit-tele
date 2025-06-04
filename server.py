@@ -85,10 +85,19 @@ async def dispatch_call(phone_number: str, prompt: str, name: str):
 
     await lkapi.aclose()
 
+    token = api.AccessToken(os.getenv('LIVEKIT_API_KEY'), os.getenv('LIVEKIT_API_SECRET')) \
+        .with_identity("manager") \
+        .with_name("urmi_fe") \
+        .with_grants(api.VideoGrants(
+            room_join=True,
+            room=room_name,
+        ))
+
     return ({
         "room": room_name,
         "phone_number": phone_number,
         "data_id": rand_id,
+        "manager_token": token.to_jwt()
     })
 
 @app.post("/dispatch")
