@@ -107,6 +107,7 @@
                         <th>Phone Number</th>
                         <th>Time</th>
                         <th>Date</th>
+                        <th>Messages</th>
                         <th>Call Data</th>
                         <th>Recording</th>
                     </tr>
@@ -169,7 +170,7 @@
                 const tableBody = document.getElementById('callLogsTable');
                 tableBody.innerHTML = '';
 
-                data.forEach(log => {
+                for (const log of data) {
                     // Parse data_id to extract information
                     const dataId = log.data_id;
                     let phoneNumber = '';
@@ -199,17 +200,30 @@
                         };
                     }
 
+                    // Fetch call data to get message count
+                    let messageCount = '-';
+                    try {
+                        const callDataResponse = await fetch(`/get-call-data/${dataId}`);
+                        const callData = await callDataResponse.json();
+                        if (callData.transcript && callData.transcript.items) {
+                            messageCount = callData.transcript.items.length;
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching call data for ${dataId}:`, error);
+                    }
+
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${name || '-'}</td>
                         <td>${phoneNumber || '-'}</td>
                         <td>${dateTime?.time || '-'}</td>
                         <td>${dateTime?.date || '-'}</td>
+                        <td>${messageCount}</td>
                         <td><a href="/get-call-data/${dataId}" target="_blank">View Data</a></td>
                         <td><a href="/get-recording/${dataId}" target="_blank">Download Recording</a></td>
                     `;
                     tableBody.appendChild(row);
-                });
+                }
             } catch (error) {
                 console.error('Error loading call logs:', error);
             }
