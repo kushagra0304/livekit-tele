@@ -175,6 +175,7 @@ async def entrypoint(ctx: JobContext):
     )
 
     lkapi = api.LiveKitAPI()
+    await asyncio.sleep(5)
     res = await lkapi.egress.start_room_composite_egress(req)
     print(res)
     await lkapi.aclose()

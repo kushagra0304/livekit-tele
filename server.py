@@ -148,7 +148,7 @@ async def dispatch_call(phone_number: str, prompt: str, name: str):
     if not name:
         return {"error": "Missing name"}
 
-    room_name = "tele_room"
+    room_name = f"room-{uuid.uuid4().hex[:8]}"
 
     # Initialize the LiveKit API client
     lkapi = api.LiveKitAPI(
@@ -205,23 +205,23 @@ def createParticipantToken(userInfo, roomName):
     
     return token.to_jwt()
 
-@app.get("/get_curr_call_stat")
-async def get_call_stat(request: Request):
-    global call_status
-    if not call_status:
-        return { "message": "no call in place" }
+# @app.get("/get_curr_call_stat")
+# async def get_call_stat(request: Request):
+#     global call_status
+#     if not call_status:
+#         return { "message": "no call in place" }
     
-    lkapi = api.LiveKitAPI(
-        url=os.getenv("LIVEKIT_URL"),
-        api_key=os.getenv("LIVEKIT_API_KEY"),
-        api_secret=os.getenv("LIVEKIT_API_SECRET"),
-    )
+#     lkapi = api.LiveKitAPI(
+#         url=os.getenv("LIVEKIT_URL"),
+#         api_key=os.getenv("LIVEKIT_API_KEY"),
+#         api_secret=os.getenv("LIVEKIT_API_SECRET"),
+#     )
     
-    dispatches = await lkapi.agent_dispatch.list_dispatch(room_name="tele_room")
+#     dispatches = await lkapi.agent_dispatch.list_dispatch(room_name="tele_room")
 
-    print(dispatches)
+#     print(dispatches)
 
-    return {}
+#     return {}
 
 @app.get("/get_call_logs")
 def get_data():
