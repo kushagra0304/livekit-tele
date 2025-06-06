@@ -27,9 +27,36 @@
         .status-card.error {
             border-left: 4px solid #dc3545;
         }
+        .processing-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            background-color: #dc3545;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .processing-banner.show {
+            display: block;
+        }
+        .form-disabled {
+            opacity: 0.7;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
+    <!-- Processing Banner -->
+    <div class="processing-banner" id="processingBanner">
+        ⚠️ BATCH PROCESSING IN PROGRESS - DO NOT CLOSE THE BROWSER ⚠️
+    </div>
+
     <div class="container">
         <h1>Call Dispatch System</h1>
         
@@ -65,7 +92,7 @@
                         <label for="prompt" class="form-label">Prompt</label>
                         <textarea class="form-control" id="prompt" rows="3" required></textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary">Start Dispatch</button>
+                    <button type="submit" class="btn btn-primary" id="dispatchButton">Start Dispatch</button>
                 </form>
             </div>
         </div>
@@ -94,6 +121,23 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
+        // Function to toggle processing state
+        function setProcessingState(isProcessing) {
+            const banner = document.getElementById('processingBanner');
+            const form = document.getElementById('uploadForm');
+            const dispatchButton = document.getElementById('dispatchButton');
+            
+            if (isProcessing) {
+                banner.classList.add('show');
+                form.classList.add('form-disabled');
+                dispatchButton.disabled = true;
+            } else {
+                banner.classList.remove('show');
+                form.classList.remove('form-disabled');
+                dispatchButton.disabled = false;
+            }
+        }
+
         // Function to update status indicator
         function updateStatus(name, phone, status, isLoading = false) {
             const statusCard = document.getElementById('statusCard');
@@ -173,44 +217,49 @@
 
         // Function to process Excel file and dispatch calls
         async function processExcelAndDispatch(excelData, prompt) {
-            for (const row of excelData) {
-                let success = false;
-                while (!success) {
-                    try {
-                        updateStatus(row.name, row.phone_number, 'Dispatching call...', true);
-                        
-                        const response = await fetch('/dispatch', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                name: row.name,
-                                phone_number: "+91" + row.phone_number,
-                                prompt: prompt
-                            })
-                        });
-                        const result = await response.json();
-                        
-                        if (result.message === "call in place") {
-                            updateStatus(row.name, row.phone_number, 'Call in progress', false);
-                            console.log('Call in progress, waiting 5 seconds...');
+            setProcessingState(true);
+            try {
+                for (const row of excelData) {
+                    let success = false;
+                    while (!success) {
+                        try {
+                            updateStatus(row.name, row.phone_number, 'Dispatching call...', true);
+                            
+                            const response = await fetch('/dispatch', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    name: row.name,
+                                    phone_number: "+91" + row.phone_number,
+                                    prompt: prompt
+                                })
+                            });
+                            const result = await response.json();
+                            
+                            if (result.message === "call in place") {
+                                updateStatus(row.name, row.phone_number, 'Call in progress', false);
+                                console.log('Call in progress, waiting 5 seconds...');
+                                await new Promise(resolve => setTimeout(resolve, 5000));
+                                continue;
+                            }
+                            
+                            success = true;
+                            updateStatus(row.name, row.phone_number, 'Call dispatched', false);
+                            console.log(`Dispatched call for ${row.name}`);
+                        } catch (error) {
+                            console.error('Error dispatching call:', error);
+                            updateStatus(row.name, row.phone_number, 'Error: ' + error.message, false);
                             await new Promise(resolve => setTimeout(resolve, 5000));
-                            continue;
                         }
-                        
-                        success = true;
-                        updateStatus(row.name, row.phone_number, 'Call dispatched', false);
-                        console.log(`Dispatched call for ${row.name}`);
-                    } catch (error) {
-                        console.error('Error dispatching call:', error);
-                        updateStatus(row.name, row.phone_number, 'Error: ' + error.message, false);
-                        await new Promise(resolve => setTimeout(resolve, 5000));
                     }
                 }
+            } finally {
+                // Clear status after all calls are processed
+                document.getElementById('statusCard').style.display = 'none';
+                setProcessingState(false);
             }
-            // Clear status after all calls are processed
-            document.getElementById('statusCard').style.display = 'none';
         }
 
         // Handle form submission
