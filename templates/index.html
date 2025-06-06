@@ -8,12 +8,50 @@
     <style>
         .container { margin-top: 2rem; }
         .table-responsive { margin-top: 2rem; }
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            min-width: 300px;
+        }
+        .status-card {
+            transition: all 0.3s ease;
+        }
+        .status-card.active {
+            border-left: 4px solid #198754;
+        }
+        .status-card.waiting {
+            border-left: 4px solid #ffc107;
+        }
+        .status-card.error {
+            border-left: 4px solid #dc3545;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Call Dispatch System</h1>
         
+        <!-- Status Indicator -->
+        <div class="status-indicator">
+            <div class="card status-card" id="statusCard" style="display: none;">
+                <div class="card-body">
+                    <h5 class="card-title">Current Call Status</h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="mb-1"><strong>Name:</strong> <span id="currentName">-</span></p>
+                            <p class="mb-1"><strong>Phone:</strong> <span id="currentPhone">-</span></p>
+                            <p class="mb-1"><strong>Status:</strong> <span id="currentStatus">-</span></p>
+                        </div>
+                        <div class="spinner-border text-primary" id="statusSpinner" role="status" style="display: none;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Excel Upload Form -->
         <div class="card mt-4">
             <div class="card-body">
@@ -56,6 +94,29 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
+        // Function to update status indicator
+        function updateStatus(name, phone, status, isLoading = false) {
+            const statusCard = document.getElementById('statusCard');
+            const statusSpinner = document.getElementById('statusSpinner');
+            
+            document.getElementById('currentName').textContent = name;
+            document.getElementById('currentPhone').textContent = phone;
+            document.getElementById('currentStatus').textContent = status;
+            
+            statusCard.style.display = 'block';
+            statusSpinner.style.display = isLoading ? 'block' : 'none';
+            
+            // Update card style based on status
+            statusCard.classList.remove('active', 'waiting', 'error');
+            if (status === 'Call in progress') {
+                statusCard.classList.add('waiting');
+            } else if (status === 'Call dispatched') {
+                statusCard.classList.add('active');
+            } else if (status.includes('Error')) {
+                statusCard.classList.add('error');
+            }
+        }
+
         // Function to load call logs
         async function loadCallLogs() {
             try {
@@ -116,6 +177,8 @@
                 let success = false;
                 while (!success) {
                     try {
+                        updateStatus(row.name, row.phone_number, 'Dispatching call...', true);
+                        
                         const response = await fetch('/dispatch', {
                             method: 'POST',
                             headers: {
@@ -130,19 +193,24 @@
                         const result = await response.json();
                         
                         if (result.message === "call in place") {
+                            updateStatus(row.name, row.phone_number, 'Call in progress', false);
                             console.log('Call in progress, waiting 5 seconds...');
                             await new Promise(resolve => setTimeout(resolve, 5000));
                             continue;
                         }
                         
                         success = true;
+                        updateStatus(row.name, row.phone_number, 'Call dispatched', false);
                         console.log(`Dispatched call for ${row.name}`);
                     } catch (error) {
                         console.error('Error dispatching call:', error);
+                        updateStatus(row.name, row.phone_number, 'Error: ' + error.message, false);
                         await new Promise(resolve => setTimeout(resolve, 5000));
                     }
                 }
             }
+            // Clear status after all calls are processed
+            document.getElementById('statusCard').style.display = 'none';
         }
 
         // Handle form submission
