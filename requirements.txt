@@ -6,3 +6,4 @@ uvicorn
 aiohttp
 boto3
 ffmpeg-python
+livekit

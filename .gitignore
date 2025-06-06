@@ -3,3 +3,5 @@ __pycache__
 .env
 key.json
 nohup.out
+call_data
+venv

@@ -159,25 +159,25 @@ async def entrypoint(ctx: JobContext):
         except Exception as e:
             logger.error(f"Failed to save call data: {e}")
 
-    # req = api.RoomCompositeEgressRequest(
-    #     room_name=ctx.room.name,
-    #     audio_only=True,
-    #     file_outputs=[api.EncodedFileOutput(
-    #         file_type=api.EncodedFileType.OGG,
-    #         filepath=f"""recordings/{data_id}.ogg""",
-    #         s3=api.S3Upload(
-    #             bucket="livekit-tele",
-    #             region="ap-south-1",
-    #             access_key=os.getenv("S3_ACCESS_KEY"),
-    #             secret=os.getenv("S3_SECERET"),
-    #         ),
-    #     )],
-    # )
+    req = api.RoomCompositeEgressRequest(
+        room_name=ctx.room.name,
+        audio_only=True,
+        file_outputs=[api.EncodedFileOutput(
+            file_type=api.EncodedFileType.OGG,
+            filepath=f"""recordings/{data_id}.ogg""",
+            s3=api.S3Upload(
+                bucket="livekit-tele",
+                region="ap-south-1",
+                access_key=os.getenv("S3_ACCESS_KEY"),
+                secret=os.getenv("S3_SECERET"),
+            ),
+        )],
+    )
 
-    # lkapi = api.LiveKitAPI()
-    # res = await lkapi.egress.start_room_composite_egress(req)
-    # print(res)
-    # await lkapi.aclose()
+    lkapi = api.LiveKitAPI()
+    res = await lkapi.egress.start_room_composite_egress(req)
+    print(res)
+    await lkapi.aclose()
 
 
     ctx.add_shutdown_callback(write_transcript)
@@ -205,7 +205,7 @@ async def entrypoint(ctx: JobContext):
 
     # `create_sip_participant` starts dialing the user
     try:
-        # print(ctx.room.name, outbound_trunk_id, phone_number, participant_identity)
+        print(ctx.room.name, outbound_trunk_id, phone_number, participant_identity)
 
         await ctx.api.sip.create_sip_participant(
             api.CreateSIPParticipantRequest(
