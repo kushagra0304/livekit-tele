@@ -65,14 +65,43 @@
                 tableBody.innerHTML = '';
 
                 data.forEach(log => {
+                    // Parse data_id to extract information
+                    const dataId = log.data_id;
+                    let phoneNumber = '';
+                    let name = '';
+                    let dateTime = '';
+                    
+                    // Extract phone number (everything before the first underscore)
+                    const firstUnderscore = dataId.indexOf('_');
+                    if (firstUnderscore !== -1) {
+                        phoneNumber = dataId.substring(0, firstUnderscore);
+                    }
+                    
+                    // Extract name (between first and second underscore)
+                    const secondUnderscore = dataId.indexOf('_', firstUnderscore + 1);
+                    if (secondUnderscore !== -1) {
+                        name = dataId.substring(firstUnderscore + 1, secondUnderscore);
+                    }
+                    
+                    // Extract date and time
+                    const dateTimeMatch = dataId.match(/([A-Za-z]+-\d{2}-\d{4}_\d{2}-\d{2}-\d{2}_[AP]M_IST)/);
+                    if (dateTimeMatch) {
+                        const fullDateTime = dateTimeMatch[1];
+                        const [datePart, timePart] = fullDateTime.split('_');
+                        dateTime = {
+                            date: datePart,
+                            time: timePart
+                        };
+                    }
+
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td>${log.name || '-'}</td>
-                        <td>${log.phone_number || '-'}</td>
-                        <td>${log.time || '-'}</td>
-                        <td>${log.date || '-'}</td>
-                        <td><a href="/get-call-data/${log.data_id}" target="_blank">View Data</a></td>
-                        <td><a href="/get-recording/${log.data_id}" target="_blank">Download Recording</a></td>
+                        <td>${name || '-'}</td>
+                        <td>${phoneNumber || '-'}</td>
+                        <td>${dateTime?.time || '-'}</td>
+                        <td>${dateTime?.date || '-'}</td>
+                        <td><a href="/get-call-data/${dataId}" target="_blank">View Data</a></td>
+                        <td><a href="/get-recording/${dataId}" target="_blank">Download Recording</a></td>
                     `;
                     tableBody.appendChild(row);
                 });
