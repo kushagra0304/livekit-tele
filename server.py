@@ -7,7 +7,9 @@ from livekit import api
 import uuid
 import boto3
 from io import BytesIO
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import ffmpeg
 from fastapi.middleware.cors import CORSMiddleware
 import datetime
@@ -23,6 +25,12 @@ origins = [
 ]
 
 load_dotenv(".env.local")
+
+# Create templates directory if it doesn't exist
+os.makedirs("templates", exist_ok=True)
+
+# Mount templates directory
+templates = Jinja2Templates(directory="templates")
 
 rand_id = ""
 
@@ -120,9 +128,9 @@ async def receive_webhook(request: Request, authorization: str = Header(None)):
 #     return await call_next(request)
 
 
-@app.get("/")
-def root():
-    return {"status": "OK", "message": "Voice AI agent is running"}
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 async def dispatch_call(phone_number: str, prompt: str, name: str):
     global call_status
