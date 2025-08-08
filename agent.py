@@ -20,6 +20,8 @@ from livekit.plugins import (
     openai,
     noise_cancellation,  # noqa: F401
 )
+
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from livekit.plugins.turn_detector.english import EnglishModel
 import asyncio
 import logging
@@ -43,10 +45,11 @@ class OutboundCaller(Agent):
         self.participant = participant
 
     @function_tool()
-    async def hangup(self):
+    async def hangup(self, ctx: RunContext):  # ✅ Added ctx parameter
         job_ctx = get_job_context()
         await job_ctx.api.room.delete_room(api.DeleteRoomRequest(room=job_ctx.room.name))
 
+    # Update the calls to hangup to pass the context:
     async def transfer_call(self, ctx: RunContext):
         transfer_to = self.dial_info.get("transfer_to")
         if not transfer_to:
@@ -63,7 +66,11 @@ class OutboundCaller(Agent):
             )
         except Exception as e:
             logger.error(f"Transfer failed: {e}")
-            await self.hangup()
+            await self.hangup(ctx)  # ✅ Pass ctx
+
+    async def detected_answering_machine(self, ctx: RunContext):
+        logger.info(f"Voicemail detected for {self.participant.identity}")
+        await self.hangup(ctx) 
 
     @function_tool()
     async def end_call(self, ctx: RunContext):
@@ -84,18 +91,19 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"connecting to room {ctx.room.name}")
 
     session = AgentSession(
-        turn_detection=EnglishModel(),
+    #    turn_detection=MultilingualModel(),
         vad=silero.VAD.load(),
-        stt=deepgram.STT(model="nova-3"),
+        # stt=deepgram.STT(model="nova-3"),
         # you can also use OpenAI's TTS with openai.TTS()
-        tts=cartesia.TTS(),
-        # stt=openai.STT(
-        #     model="gpt-4o-transcribe",
-        # ),   
-        # tts=openai.TTS(
-        #     model="gpt-4o-mini-tts"
-        # ),
+        # tts=cartesia.TTS(),
+        stt=openai.STT(
+            model="gpt-4o-transcribe",
+        ),   
+        tts=openai.TTS(
+            model="gpt-4o-mini-tts"
+        ),
         # stt=google.STT(
+        #     languages="hi-IN",
         #     model="telephony",
         #     spoken_punctuation=False,
         # ),        
@@ -159,26 +167,26 @@ async def entrypoint(ctx: JobContext):
         except Exception as e:
             logger.error(f"Failed to save call data: {e}")
 
-    req = api.RoomCompositeEgressRequest(
-        room_name=ctx.room.name,
-        audio_only=True,
-        file_outputs=[api.EncodedFileOutput(
-            file_type=api.EncodedFileType.OGG,
-            filepath=f"""recordings/{data_id}.ogg""",
-            s3=api.S3Upload(
-                bucket="livekit-tele",
-                region="ap-south-1",
-                access_key=os.getenv("S3_ACCESS_KEY"),
-                secret=os.getenv("S3_SECERET"),
-            ),
-        )],
-    )
+    # req = api.RoomCompositeEgressRequest(
+    #     room_name=ctx.room.name,
+    #     audio_only=True,
+    #     file_outputs=[api.EncodedFileOutput(
+    #         file_type=api.EncodedFileType.OGG,
+    #         filepath=f"""recordings/{data_id}.ogg""",
+    #         s3=api.S3Upload(
+    #             bucket="livekit-tele",
+    #             region="ap-south-1",
+    #             access_key=os.getenv("S3_ACCESS_KEY"),
+    #             secret=os.getenv("S3_SECERET"),
+    #         ),
+    #     )],
+    # )
 
-    lkapi = api.LiveKitAPI()
-    await asyncio.sleep(5)
-    res = await lkapi.egress.start_room_composite_egress(req)
-    print(res)
-    await lkapi.aclose()
+    # lkapi = api.LiveKitAPI()
+    # await asyncio.sleep(5)
+    # res = await lkapi.egress.start_room_composite_egress(req)
+    # print(res)
+    # await lkapi.aclose()
 
 
     ctx.add_shutdown_callback(write_transcript)
