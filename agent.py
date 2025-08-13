@@ -91,17 +91,17 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession(
     #    turn_detection=MultilingualModel(),
         vad=silero.VAD.load(),
-        # tts=sarvam.TTS( target_language_code="hi-IN", speaker="anushka" ),
-        # stt=sarvam.STT( language="hi-IN", model="saarika:v2.5" ),
+        tts=sarvam.TTS( target_language_code="en-IN", speaker="anushka" ),
+        stt=sarvam.STT( language="en-IN", model="saarika:v2.5" ),
         # stt=deepgram.STT(model="nova-3"),
         # you can also use OpenAI's TTS with openai.TTS()
         # tts=cartesia.TTS(),
-        stt=openai.STT(
-            model="gpt-4o-transcribe",
-        ),   
-        tts=openai.TTS(
-            model="gpt-4o-mini-tts"
-        ),
+        # stt=openai.STT(
+        #     model="gpt-4o-transcribe",
+        # ),   
+        # tts=openai.TTS(
+        #     model="gpt-4o-mini-tts"
+        # ),
         # stt=google.STT(
         #     languages="hi-IN",
         #     model="telephony",
