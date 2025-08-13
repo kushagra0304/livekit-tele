@@ -18,6 +18,7 @@ from livekit.plugins import (
     silero,
     google,
     openai,
+    sarvam,
     noise_cancellation,  # noqa: F401
 )
 
@@ -44,45 +45,45 @@ class OutboundCaller(Agent):
     def set_participant(self, participant):
         self.participant = participant
 
-    @function_tool()
-    async def hangup(self, ctx: RunContext):  # ✅ Added ctx parameter
-        job_ctx = get_job_context()
-        await job_ctx.api.room.delete_room(api.DeleteRoomRequest(room=job_ctx.room.name))
+    # @function_tool()
+    # async def hangup(self, ctx: RunContext):  # ✅ Added ctx parameter
+    #     job_ctx = get_job_context()
+    #     await job_ctx.api.room.delete_room(api.DeleteRoomRequest(room=job_ctx.room.name))
 
     # Update the calls to hangup to pass the context:
-    async def transfer_call(self, ctx: RunContext):
-        transfer_to = self.dial_info.get("transfer_to")
-        if not transfer_to:
-            return "cannot transfer call"
-        await ctx.session.generate_reply(instructions="Transferring you now...")
-        job_ctx = get_job_context()
-        try:
-            await job_ctx.api.sip.transfer_sip_participant(
-                api.TransferSIPParticipantRequest(
-                    room_name=job_ctx.room.name,
-                    participant_identity=self.participant.identity,
-                    transfer_to=f"tel:{transfer_to}",
-                )
-            )
-        except Exception as e:
-            logger.error(f"Transfer failed: {e}")
-            await self.hangup(ctx)  # ✅ Pass ctx
+    # async def transfer_call(self, ctx: RunContext):
+    #     transfer_to = self.dial_info.get("transfer_to")
+    #     if not transfer_to:
+    #         return "cannot transfer call"
+    #     await ctx.session.generate_reply(instructions="Transferring you now...")
+    #     job_ctx = get_job_context()
+    #     try:
+    #         await job_ctx.api.sip.transfer_sip_participant(
+    #             api.TransferSIPParticipantRequest(
+    #                 room_name=job_ctx.room.name,
+    #                 participant_identity=self.participant.identity,
+    #                 transfer_to=f"tel:{transfer_to}",
+    #             )
+    #         )
+    #     except Exception as e:
+    #         logger.error(f"Transfer failed: {e}")
+    #         await self.hangup(ctx)  # ✅ Pass ctx
 
-    async def detected_answering_machine(self, ctx: RunContext):
-        logger.info(f"Voicemail detected for {self.participant.identity}")
-        await self.hangup(ctx) 
+    # async def detected_answering_machine(self, ctx: RunContext):
+    #     logger.info(f"Voicemail detected for {self.participant.identity}")
+    #     await self.hangup(ctx) 
 
-    @function_tool()
-    async def end_call(self, ctx: RunContext):
-        logger.info(f"Ending call for {self.participant.identity}")
-        current_speech = ctx.session.current_speech
-        if current_speech:
-            await current_speech.wait_for_playout()
-        await self.hangup()
+    # @function_tool()
+    # async def end_call(self, ctx: RunContext):
+    #     logger.info(f"Ending call for {self.participant.identity}")
+    #     current_speech = ctx.session.current_speech
+    #     if current_speech:
+    #         await current_speech.wait_for_playout()
+    #     await self.hangup()
 
-    async def detected_answering_machine(self, ctx: RunContext):
-        logger.info(f"Voicemail detected for {self.participant.identity}")
-        await self.hangup()
+    # async def detected_answering_machine(self, ctx: RunContext):
+    #     logger.info(f"Voicemail detected for {self.participant.identity}")
+    #     await self.hangup()
     
 from datetime import datetime
 import json
@@ -93,15 +94,17 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession(
     #    turn_detection=MultilingualModel(),
         vad=silero.VAD.load(),
+        tts=sarvam.TTS( target_language_code="hi-IN", speaker="anushka" ),
+        stt=sarvam.STT( language="hi-IN", model="saarika:v2.5" ),
         # stt=deepgram.STT(model="nova-3"),
         # you can also use OpenAI's TTS with openai.TTS()
         # tts=cartesia.TTS(),
-        stt=openai.STT(
-            model="gpt-4o-transcribe",
-        ),   
-        tts=openai.TTS(
-            model="gpt-4o-mini-tts"
-        ),
+        # stt=openai.STT(
+        #     model="gpt-4o-transcribe",
+        # ),   
+        # tts=openai.TTS(
+        #     model="gpt-4o-mini-tts"
+        # ),
         # stt=google.STT(
         #     languages="hi-IN",
         #     model="telephony",
