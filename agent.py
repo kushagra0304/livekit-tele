@@ -12,12 +12,8 @@ from livekit.agents import (
 )
 
 from livekit.plugins import (
-    deepgram,
     groq,
-    cartesia,
     silero,
-    google,
-    openai,
     sarvam,
     noise_cancellation,  # noqa: F401
 )
